@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "File Upload" %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .upload-form {
+        background: #fff;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .form-section {
+        margin-bottom: 30px;
+    }
+    
+    .form-section h3 {
+        margin-bottom: 15px;
+        color: #333;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 5px;
+    }
+    
+    .help-text {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .uppy-container {
+        margin: 15px 0;
+    }
+    
+    .btn-upload {
+        background: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    
+    .btn-upload:hover {
+        background: #0056b3;
+    }
+    
+    .upload-info {
+        background: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .upload-info h4 {
+        margin-top: 0;
+        color: #0066cc;
+    }
+    
+    .file-types {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 10px 15px;
+        margin: 10px 0;
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <h1>{% trans "File Upload Examples" %}</h1>
+    
+    <div class="upload-info">
+        <h4>{% trans "About Uppy Upload" %}</h4>
+        <p>{% trans "This page demonstrates various file upload scenarios using Uppy, a modern file uploader that supports resumable uploads and direct-to-cloud storage." %}</p>
+    </div>
+    
+    <!-- Single File Upload -->
+    <div class="form-section">
+        <h3>{% trans "Single File Upload" %}</h3>
+        <p class="help-text">{% trans "Upload a single file using TUS protocol for resumable uploads." %}</p>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="{{ single_form.title.id_for_label }}" class="form-label">
+                    {{ single_form.title.label }}
+                </label>
+                {{ single_form.title }}
+                {% if single_form.title.help_text %}
+                    <div class="help-text">{{ single_form.title.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ single_form.description.id_for_label }}" class="form-label">
+                    {{ single_form.description.label }}
+                </label>
+                {{ single_form.description }}
+                {% if single_form.description.help_text %}
+                    <div class="help-text">{{ single_form.description.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ single_form.file.id_for_label }}" class="form-label">
+                    {{ single_form.file.label }}
+                </label>
+                {{ single_form.file }}
+                {% if single_form.file.help_text %}
+                    <div class="help-text">{{ single_form.file.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="btn-upload">
+                {% trans "Upload File" %}
+            </button>
+        </form>
+    </div>
+    
+    <!-- Multiple File Upload -->
+    <div class="form-section">
+        <h3>{% trans "Multiple File Upload" %}</h3>
+        <p class="help-text">{% trans "Upload multiple files using S3 multipart upload for better performance." %}</p>
+        
+        <div class="file-types">
+            <strong>{% trans "Supported file types:" %}</strong> All types<br>
+            <strong>{% trans "Maximum files:" %}</strong> 10<br>
+            <strong>{% trans "Maximum size per file:" %}</strong> 100MB
+        </div>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="{{ multiple_form.name.id_for_label }}" class="form-label">
+                    {{ multiple_form.name.label }}
+                </label>
+                {{ multiple_form.name }}
+                {% if multiple_form.name.help_text %}
+                    <div class="help-text">{{ multiple_form.name.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ multiple_form.files.id_for_label }}" class="form-label">
+                    {{ multiple_form.files.label }}
+                </label>
+                {{ multiple_form.files }}
+                {% if multiple_form.files.help_text %}
+                    <div class="help-text">{{ multiple_form.files.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="btn-upload">
+                {% trans "Upload Files" %}
+            </button>
+        </form>
+    </div>
+    
+    <!-- Image Upload -->
+    <div class="form-section">
+        <h3>{% trans "Image Upload" %}</h3>
+        <p class="help-text">{% trans "Upload images with automatic validation and preview." %}</p>
+        
+        <div class="file-types">
+            <strong>{% trans "Supported formats:" %}</strong> JPG, PNG, GIF, WebP<br>
+            <strong>{% trans "Maximum size:" %}</strong> 10MB
+        </div>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="{{ image_form.caption.id_for_label }}" class="form-label">
+                    {{ image_form.caption.label }}
+                </label>
+                {{ image_form.caption }}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ image_form.alt_text.id_for_label }}" class="form-label">
+                    {{ image_form.alt_text.label }}
+                </label>
+                {{ image_form.alt_text }}
+                <div class="help-text">{{ image_form.alt_text.help_text }}</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ image_form.image.id_for_label }}" class="form-label">
+                    {{ image_form.image.label }}
+                </label>
+                {{ image_form.image }}
+                {% if image_form.image.help_text %}
+                    <div class="help-text">{{ image_form.image.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="btn-upload">
+                {% trans "Upload Image" %}
+            </button>
+        </form>
+    </div>
+    
+    <!-- Document Upload -->
+    <div class="form-section">
+        <h3>{% trans "Document Upload" %}</h3>
+        <p class="help-text">{% trans "Upload documents with type validation." %}</p>
+        
+        <div class="file-types">
+            <strong>{% trans "Supported formats:" %}</strong> PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, ODT, ODS, ODP<br>
+            <strong>{% trans "Maximum size:" %}</strong> 50MB
+        </div>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="{{ document_form.document_name.id_for_label }}" class="form-label">
+                    {{ document_form.document_name.label }}
+                </label>
+                {{ document_form.document_name }}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ document_form.category.id_for_label }}" class="form-label">
+                    {{ document_form.category.label }}
+                </label>
+                {{ document_form.category }}
+                <div class="help-text">{{ document_form.category.help_text }}</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ document_form.document.id_for_label }}" class="form-label">
+                    {{ document_form.document.label }}
+                </label>
+                {{ document_form.document }}
+                {% if document_form.document.help_text %}
+                    <div class="help-text">{{ document_form.document.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="btn-upload">
+                {% trans "Upload Document" %}
+            </button>
+        </form>
+    </div>
+    
+    <!-- Profile Picture Upload -->
+    <div class="form-section">
+        <h3>{% trans "Profile Picture Upload" %}</h3>
+        <p class="help-text">{% trans "Upload a profile picture with inline widget." %}</p>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ profile_form.first_name.id_for_label }}" class="form-label">
+                            {{ profile_form.first_name.label }}
+                        </label>
+                        {{ profile_form.first_name }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ profile_form.last_name.id_for_label }}" class="form-label">
+                            {{ profile_form.last_name.label }}
+                        </label>
+                        {{ profile_form.last_name }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ profile_form.bio.id_for_label }}" class="form-label">
+                            {{ profile_form.bio.label }}
+                        </label>
+                        {{ profile_form.bio }}
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ profile_form.profile_picture.id_for_label }}" class="form-label">
+                            {{ profile_form.profile_picture.label }}
+                        </label>
+                        {{ profile_form.profile_picture }}
+                        {% if profile_form.profile_picture.help_text %}
+                            <div class="help-text">{{ profile_form.profile_picture.help_text }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-upload">
+                {% trans "Update Profile" %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize Uppy widgets when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Uppy widgets are automatically initialized by the JavaScript
+        console.log('Uppy widgets initialized');
+        
+        // Add form submission validation
+        var forms = document.querySelectorAll('form');
+        forms.forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                // Check if all uploads are complete
+                var uppyInputs = form.querySelectorAll('input[data-upload-type]');
+                var hasIncompleteUploads = false;
+                
+                uppyInputs.forEach(function(input) {
+                    var widgetId = input.id.replace('_input', '');
+                    var uppy = window.UppyWidgets && window.UppyWidgets[widgetId];
+                    
+                    if (uppy) {
+                        var files = Object.values(uppy.getState().files);
+                        var hasIncomplete = files.some(function(file) {
+                            return !file.uploadURL && !file.progress.uploadComplete;
+                        });
+                        
+                        if (hasIncomplete) {
+                            hasIncompleteUploads = true;
+                        }
+                    }
+                });
+                
+                if (hasIncompleteUploads) {
+                    e.preventDefault();
+                    alert('Please wait for all files to finish uploading before submitting the form.');
+                    return false;
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

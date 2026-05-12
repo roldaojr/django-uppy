@@ -1,0 +1,6 @@
+{% load static %}
+<div class="uppy-widget" data-target="{{ uppy.target_id }}" id="{{ uppy.id }}" data-uppy-config="{{ uppy.config }}" data-uppy-plugins="{{ uppy.plugins }}"></div>
+<input type="hidden" name="{{ widget.name }}"{% if widget.value != None %} value="{{ widget.value|stringformat:'s' }}"{% endif %}  {% include "django/forms/widgets/attrs.html" %}>
+<link rel="stylesheet" href="https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css">
+<script type="module" src="{% static 'django-uppy/django-uppy-widget.js' %}">
+</script>

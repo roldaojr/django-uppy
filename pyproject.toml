@@ -1,0 +1,13 @@
+[project]
+name = "django-uppy"
+version = "0.1.0"
+description = "Uppy upload widget and companion for Django"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.43.7",
+    "django>=6.0.4",
+    "django-environ>=0.13.0",
+    "django-storages>=1.14.6",
+    "djangorestframework>=3.17.1",
+]
