@@ -8,12 +8,15 @@ import {
 
 const plugins = { Dashboard, Tus, AwsS3 };
 
-const uppyWidget = document.querySelectorAll(".uppy-widget");
-for (let widget of uppyWidget) {
-  console.log("widget", widget);
-  const pluginsJsom = JSON.parse(widget.getAttribute("data-uppy-plugins"));
+const uppyWidgets = document.querySelectorAll(".uppy-widget");
+for (let widget of uppyWidgets) {
+  const pluginsJson = JSON.parse(widget.getAttribute("data-uppy-plugins"));
   const configJson = JSON.parse(widget.getAttribute("data-uppy-config"));
   const targetId = widget.getAttribute("data-target");
+  const target = document.getElementById(targetId);
+  const form = target.form;
+  form.uploadsComplete = form.uploadsComplete || {};
+  form.uploadsComplete[targetId] = false;
   const uppy = new Uppy(configJson || {});
   uppy.use(Form, {
     target: widget.closest("form"),
@@ -21,17 +24,23 @@ for (let widget of uppyWidget) {
     submitOnSuccess: false,
     addResultToForm: false,
   });
-  for (const [name, config] of Object.entries(pluginsJsom || {})) {
+  for (const [name, config] of Object.entries(pluginsJson || {})) {
     uppy.use(plugins[name], config);
   }
+  uppy.on("upload-success", (file, response) => {
+    const uploadUrl = response.uploadURL; 
+    const uploadId = uploadUrl.substring(uploadUrl.lastIndexOf('/') + 1);
+    target.value = `${uploadId}//${file.name}`;
+    form.uploadsComplete[targetId] = true;
+  });
   uppy.on("complete", (result) => {
-    const target = document.getElementById(targetId);
-    console.log("Upload complete:", result);
-    console.log("target", target, targetId, widget);
-    if (result.successful.length > 0 && target) {
-      const fileName = result.successful[0].name;
-      console.log("Upload successful:", fileName);
-      target.value = `${result.upload_id}//${fileName}`;
+    // Check if all uploads are complete
+    if (Object.values(form.uploadsComplete).every(status => status)) {
+      console.warn("All uploads complete!");
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      console.log(data);
+      form.submit();
     }
   });
 }

@@ -20,8 +20,8 @@ class S3MultipartView(APIView):
     """
 
     parser_classes = [JSONParser, FormParser, MultiPartParser]
-    permission_classes = get_setting("PERMISSION_CLASSES", [])
-    storage: Storage = storages[get_setting("STORAGE_NAME", "default")]
+    permission_classes = get_setting("PERMISSION_CLASSES")
+    storage: Storage = storages[get_setting("STORAGE_NAME")]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

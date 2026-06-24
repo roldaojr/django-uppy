@@ -8,6 +8,8 @@ services:
     environment:
       DEBUG: True
       MEDIA_ROOT: s3+http://minioadmin:minioadmin@host.docker.internal:9000/uploads
+      AWS_S3_CUSTOM_DOMAIN: localhost:9000/uploads
+      AWS_S3_URL_PROTOCOL: "http:"
   minio:
     image: quay.io/minio/minio
     ports:
@@ -27,9 +29,9 @@ services:
     restart: no
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set dockerminio http://minio:9000 minioadmin minioadmin;
-      /usr/bin/mc mb dockerminio/uploads;
-      /usr/bin/mc anonymous set public dockerminio/uploads;
+      /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb local/uploads;
+      /usr/bin/mc anonymous set public local/uploads;
       exit 0;
       "
 

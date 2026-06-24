@@ -1,10 +1,11 @@
 import json
 import math
 from django.conf import settings as django_settings
+from django.core.exceptions import ValidationError
 from django.forms.widgets import Widget
 from django.urls import reverse
-
-from . import settings
+from .settings import get_setting
+from .files import TemporaryUploadedFile
 
 
 class UppyWidget(Widget):
@@ -33,16 +34,31 @@ class UppyWidget(Widget):
         self.auto_proceed = auto_proceed
         self.allow_multiple = allow_multiple
         self.max_files = max_files
-        self.max_file_size = max_file_size or settings.get_setting(
-            "TUS_MAX_SIZE", 1024 * 1024 * 1024
-        )  # 1GB default
+        self.max_file_size = max_file_size or get_setting("TUS_MAX_SIZE")
         self.allowed_file_types = allowed_file_types
         self.inline = inline
         self.height = height
         self.theme = theme
 
+    def value_from_datadict(self, data, files, name):
+        print("value_from_datadict", data, files, name)
+        filename = data.get(name, "")
+        if not filename:
+            return
+
+        if "//" not in filename:
+            raise ValidationError(
+                self.error_messages["invalid_file"],
+                code="invalid_file",
+            )
+
+        upload_id, original_name = filename.split("//")
+        tmp_name = f"{get_setting('TMP_PATH')}/{upload_id}"
+        upload = TemporaryUploadedFile(original_name, tmp_name)
+        return upload
+
     def get_context(self, name, value, attrs: dict):
-        context = super().get_context(name, value, attrs)
+        context: dict = super().get_context(name, value, attrs)
         # Generate unique ID for this widget instance
         input_id = attrs.get("id", f"id_{name}")
         uppy_id = "uppy_" + input_id

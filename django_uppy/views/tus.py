@@ -25,14 +25,14 @@ class TusUploadView(View):
 
     TUS_VERSION = "1.0.0"
     TUS_EXTENSIONS = "creation,expiration,termination"
-    TUS_MAX_SIZE = get_setting("TUS_MAX_SIZE", 5 * 1024 * 1024 * 1024)  # 5GB default
+    TUS_MAX_SIZE = get_setting("TUS_MAX_SIZE")
     storage: Storage
     request: HttpRequest
     tmp_path: str
 
     def __init__(self):
-        self.storage = storages[get_setting("STORAGE_NAME", "default")]
-        self.tmp_path = get_setting("TMP_PATH", "z-uploads.tmp").strip("/")
+        self.storage = storages[get_setting("STORAGE_NAME")]
+        self.tmp_path = get_setting("TMP_PATH").strip("/")
 
     def _check_version(self):
         """Check TUS version"""
