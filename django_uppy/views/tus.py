@@ -1,7 +1,6 @@
 import base64
 import json
-import time
-
+from io import BytesIO
 from django.core.exceptions import BadRequest
 from django.core.files.storage import storages, Storage
 from django.http import HttpRequest, HttpResponse, Http404
@@ -9,10 +8,8 @@ from django.urls import reverse
 from django.views.generic import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from django.utils.text import slugify
 from django.utils.crypto import get_random_string
 
-from ..utils import get_file_upload_path
 from ..settings import get_setting
 
 
@@ -31,7 +28,6 @@ class TusUploadView(View):
     tmp_path: str
 
     def __init__(self):
-        self.storage = storages[get_setting("STORAGE_NAME")]
         self.tmp_path = get_setting("TMP_PATH").strip("/")
 
     def _check_version(self):
@@ -51,11 +47,13 @@ class TusUploadView(View):
         except FileNotFoundError:
             raise Http404("File info not found")
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(self, request, *args, **kwargs: dict):
         if request.method.lower() in ["post", "put", "patch"]:
             version_mismatch = self._check_version()
             if version_mismatch is not None:
                 return version_mismatch
+        self.storage_name = kwargs.pop("storage", "default")
+        self.storage = storages[self.storage_name]
         response = super().dispatch(request, *args, **kwargs)
         response["Tus-Resumable"] = self.TUS_VERSION
         response["Cache-Control"] = "no-store"
@@ -95,16 +93,18 @@ class TusUploadView(View):
         upload_id = get_random_string(32)
         upload_path = f"{self.tmp_path}/{upload_id}"
         # Create empty file for upload
-        with self.storage.open(upload_path, "wb"):
-            pass  # Create empty file
+        self.storage.save(upload_path, BytesIO())
         # Return upload URL
         response = HttpResponse(status=201)
         response["Location"] = self.request.build_absolute_uri(
-            reverse("uppy-tus-upload", kwargs={"upload_id": upload_id})
+            reverse(
+                "uppy-tus-upload",
+                kwargs={"storage": self.storage_name, "upload_id": upload_id},
+            )
         )
         return response
 
-    def head(self, request, upload_id, *args, **kwargs):
+    def head(self, request, upload_id: str):
         """TUS protocol HEAD request - get upload status"""
         file_path = f"{self.tmp_path}/{upload_id}"
         upload_info = self._read_file_info(file_path)
@@ -114,7 +114,7 @@ class TusUploadView(View):
         response["Upload-Length"] = str(upload_info["size"])
         return response
 
-    def patch(self, request: HttpRequest, upload_id, *args, **kwargs):
+    def patch(self, request: HttpRequest, upload_id: str):
         """TUS protocol PATCH request - upload chunk"""
         # Check content type
         content_type = request.content_type
@@ -151,7 +151,7 @@ class TusUploadView(View):
         response["Upload-Offset"] = str(new_offset)
         return response
 
-    def delete(self, request, upload_id, *args, **kwargs):
+    def delete(self, request, upload_id: str):
         """TUS protocol DELETE request - terminate upload"""
         self._check_version()
         file_path = f"{self.tmp_path}/{upload_id}"

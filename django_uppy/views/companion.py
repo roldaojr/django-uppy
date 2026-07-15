@@ -1,3 +1,4 @@
+from django.http.request import BadRequest
 from django.views.generic import View
 from django.http import HttpRequest, JsonResponse
 from typing import TypedDict
@@ -15,15 +16,17 @@ class S3Params(TypedDict):
 
 
 class S3ParamsView(View):
-    def get(self, request: HttpRequest):
+    def get(self, request: HttpRequest, storage: str):
         filename = request.GET.get("filename")
         upload_id = get_random_string(32)
-        tmp_path = get_setting("TMP_PATH", "z-uploads.tmp").strip("/")
-        filepath = f"/{tmp_path}/{upload_id}-{slugify(filename)}"
-        storage: Storage = storages["default"]
+        tmp_path = get_setting("TMP_PATH")
+        filepath = f"{tmp_path}/{upload_id}-{slugify(filename)}"
+        storage: Storage = storages[storage]
+        if not hasattr(storage, "bucket"):
+            raise BadRequest("Invalid params")
         client = storage.bucket.meta.client
         presigned_url = client.generate_presigned_url(
-            "put_object",
+            ClientMethod="put_object",
             Params={"Bucket": storage.bucket_name, "Key": filepath},
             ExpiresIn=3600,
         )

@@ -4,7 +4,7 @@ from urllib.parse import urlparse, parse_qs
 def s3_storage_settings_from_url(url: str) -> dict:
     bucket_url = urlparse(url)
     params = parse_qs(bucket_url.query)
-    options = {}
+    options = {"signature_version": "s3v4"}
     proto = "https"
     if bucket_url.scheme.startswith("s3+"):
         proto = bucket_url.scheme.split("+", 1)[1]

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import UploadedFile, UploadGroup
-from .forms import UploadedFileForm
+from .models import UploadedFile, UploadGroup, S3FileUpload
+from .forms import UploadedFileForm, S3FileUploadForm
 
 
 class UploadedFileInline(admin.TabularInline):
@@ -16,10 +16,8 @@ class UploadGroupAdmin(admin.ModelAdmin):
     inlines = [UploadedFileInline]
 
 
-@admin.register(UploadedFile)
-class UploadedFileAdmin(admin.ModelAdmin):
+class BaseFileUploadAdmin(admin.ModelAdmin):
     list_display = ("file", "content_type_display", "file_link")
-    form = UploadedFileForm
 
     def content_type_display(self, obj):
         return obj.content_type
@@ -35,3 +33,13 @@ class UploadedFileAdmin(admin.ModelAdmin):
 
     file_link.short_description = "File Link"
     file_link.allow_tags = True
+
+
+@admin.register(UploadedFile)
+class UploadedFileAdmin(BaseFileUploadAdmin):
+    form = UploadedFileForm
+
+
+@admin.register(S3FileUpload)
+class S3FileUploadAdmin(BaseFileUploadAdmin):
+    form = S3FileUploadForm

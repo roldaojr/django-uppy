@@ -69,8 +69,8 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 MEDIA_URL = "media/"
-MEDIA_ROOT = env.str("MEDIA_ROOT", default=BASE_DIR / "media")
-if MEDIA_ROOT.startswith("s3"):
-    STORAGES["default"] = s3_storage_settings_from_url(MEDIA_ROOT)
+MEDIA_ROOT = BASE_DIR / "media"
+S3_MEDIA_ROOT = env.str("S3_MEDIA_ROOT", default="s3://uploads")
+STORAGES["bucket"] = s3_storage_settings_from_url(S3_MEDIA_ROOT)
 AWS_S3_CUSTOM_DOMAIN = env.str("AWS_S3_CUSTOM_DOMAIN", default=None)
 AWS_S3_URL_PROTOCOL = env.str("AWS_S3_URL_PROTOCOL", default="https:")

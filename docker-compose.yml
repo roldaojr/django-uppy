@@ -7,7 +7,7 @@ services:
       - .:/app
     environment:
       DEBUG: True
-      MEDIA_ROOT: s3+http://minioadmin:minioadmin@host.docker.internal:9000/uploads
+      S3_MEDIA_ROOT: s3+http://minioadmin:minioadmin@host.docker.internal:9000/uploads
       AWS_S3_CUSTOM_DOMAIN: localhost:9000/uploads
       AWS_S3_URL_PROTOCOL: "http:"
   minio:
@@ -16,8 +16,9 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data

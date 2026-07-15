@@ -19,6 +19,7 @@ class UppyWidget(Widget):
     def __init__(
         self,
         upload_type="tus",  # 'tus' or 's3'
+        storage="default",
         auto_proceed=False,
         allow_multiple=False,
         max_files=1,
@@ -39,9 +40,9 @@ class UppyWidget(Widget):
         self.inline = inline
         self.height = height
         self.theme = theme
+        self.storage_name = storage
 
     def value_from_datadict(self, data, files, name):
-        print("value_from_datadict", data, files, name)
         filename = data.get(name, "")
         if not filename:
             return
@@ -54,7 +55,9 @@ class UppyWidget(Widget):
 
         upload_id, original_name = filename.split("//")
         tmp_name = f"{get_setting('TMP_PATH')}/{upload_id}"
-        upload = TemporaryUploadedFile(original_name, tmp_name)
+        upload = TemporaryUploadedFile(
+            original_name, tmp_name, storage=self.storage_name
+        )
         return upload
 
     def get_context(self, name, value, attrs: dict):
@@ -93,7 +96,9 @@ class UppyWidget(Widget):
 
         # Upload plugin based on type
         upload_params = {
-            "endpoint": reverse("uppy-tus-upload"),
+            "endpoint": reverse(
+                "uppy-tus-upload", kwargs={"storage": self.storage_name}
+            ),
             "retryDelays": [0, 1000, 3000, 5000],
         }
         if self.upload_type == "tus":

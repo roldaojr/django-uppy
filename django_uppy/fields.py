@@ -86,13 +86,13 @@ class UppyFileField(Field):
 
         # Validate file size
         if self.max_file_size and file_data["size"] > self.max_file_size:
-            raise ValidationError(_(f"File size exceeds maximum allowed size"))
+            raise ValidationError(_("File size exceeds maximum allowed size"))
 
         # Validate file type
         if self.allowed_file_types:
             file_extension = file_data["name"].split(".")[-1].lower()
             if file_extension not in self.allowed_file_types:
-                raise ValidationError(_(f"File type not allowed"))
+                raise ValidationError(_("File type not allowed"))
 
     def clean(self, value):
         """Clean and return the file data"""
