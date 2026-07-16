@@ -15,8 +15,9 @@ for (let widget of uppyWidgets) {
   const targetId = widget.getAttribute("data-target");
   const target = document.getElementById(targetId);
   const form = target.form;
+  const isInitial = !!target.value;
   form.uploadsComplete = form.uploadsComplete || {};
-  form.uploadsComplete[targetId] = false;
+  form.uploadsComplete[targetId] = isInitial;
   const uppy = new Uppy(configJson || {});
   uppy.use(Form, {
     target: widget.closest("form"),
@@ -43,4 +44,23 @@ for (let widget of uppyWidgets) {
       form.submit();
     }
   });
+  if(isInitial) {
+    // exsintg file
+    uppy.addFile({
+      source: 'initial',
+      name: target.value,
+      type: 'file',
+      data: new Blob(),
+      uploadURL: target.dataset.url,
+      progress: {
+        percentage: 100,
+        uploadComplete: true,
+        uploadStarted: Date.now(),
+      },
+    });
+    uppy.on("file-removed", (e) => {
+      // Mark file as removed on form
+      console.log(e)
+    })
+  }
 }

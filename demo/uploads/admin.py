@@ -1,19 +1,24 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import UploadedFile, UploadGroup, S3FileUpload
-from .forms import UploadedFileForm, S3FileUploadForm
+from .models import (
+    UploadGroup,
+    BucketFileUpload,
+    FileUpload,
+    TusFileUpload,
+    S3FileUpload,
+)
+from .forms import TusFileUploadForm, S3FileUploadForm
 
 
 class UploadedFileInline(admin.TabularInline):
-    model = UploadedFile
-    form = UploadedFileForm
+    model = TusFileUpload
+    form = TusFileUploadForm
     extra = 1
 
 
 @admin.register(UploadGroup)
 class UploadGroupAdmin(admin.ModelAdmin):
     list_display = ("name",)
-    inlines = [UploadedFileInline]
 
 
 class BaseFileUploadAdmin(admin.ModelAdmin):
@@ -35,9 +40,19 @@ class BaseFileUploadAdmin(admin.ModelAdmin):
     file_link.allow_tags = True
 
 
-@admin.register(UploadedFile)
+@admin.register(FileUpload)
+class ClassicFileUploadAdmin(BaseFileUploadAdmin):
+    pass
+
+
+@admin.register(BucketFileUpload)
+class BucketFileUploadAdmin(BaseFileUploadAdmin):
+    pass
+
+
+@admin.register(TusFileUpload)
 class UploadedFileAdmin(BaseFileUploadAdmin):
-    form = UploadedFileForm
+    form = TusFileUploadForm
 
 
 @admin.register(S3FileUpload)

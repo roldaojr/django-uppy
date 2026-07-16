@@ -11,7 +11,9 @@ class UploadGroup(models.Model):
 
 
 class AbstractFileUpload(models.Model):
-    group = models.ForeignKey(UploadGroup, on_delete=models.CASCADE)
+    group = models.ForeignKey(
+        UploadGroup, on_delete=models.CASCADE, blank=True, null=True
+    )
 
     class Meta:
         abstract = True
@@ -35,11 +37,28 @@ class AbstractFileUpload(models.Model):
         super().delete(*args, **kwargs)
 
 
-class UploadedFile(AbstractFileUpload):
-    file = models.FileField(upload_to="uploads/", max_length=255)
-
-
-class S3FileUpload(AbstractFileUpload):
+class FileUpload(AbstractFileUpload):
     file = models.FileField(
-        upload_to="uploads/", max_length=255, storage=storages["bucket"]
+        upload_to="uploads/",
+        max_length=255,
     )
+
+
+class BucketFileUpload(AbstractFileUpload):
+    file = models.FileField(
+        upload_to="uploads/",
+        max_length=255,
+        storage=storages["bucket"],
+        blank=True,
+        null=True,
+    )
+
+
+class TusFileUpload(FileUpload):
+    class Meta:
+        proxy = True
+
+
+class S3FileUpload(BucketFileUpload):
+    class Meta:
+        proxy = True

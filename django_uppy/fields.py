@@ -4,7 +4,7 @@ from django.db import models
 from django.forms import Field
 from django.utils.translation import gettext_lazy as _
 
-from .widgets import UppyWidget, UppyDashboardWidget
+from .widgets import UppyClearableFileInput, UppyDashboardWidget
 
 
 class UppyFileField(Field):
@@ -13,7 +13,7 @@ class UppyFileField(Field):
     Handles both TUS and S3 multipart uploads.
     """
 
-    widget = UppyWidget
+    widget = UppyClearableFileInput
 
     def __init__(
         self,

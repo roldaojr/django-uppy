@@ -2,19 +2,31 @@ import json
 import math
 from django.conf import settings as django_settings
 from django.core.exceptions import ValidationError
-from django.forms.widgets import Widget
+from django.forms.widgets import ClearableFileInput
+from django.db.models.fields.files import FieldFile
 from django.urls import reverse
 from .settings import get_setting
 from .files import TemporaryUploadedFile
 
 
-class UppyWidget(Widget):
+class UppyClearableFileInput(ClearableFileInput):
     """
     Django widget for Uppy file uploader with TUS and S3 multipart support.
     """
 
-    template_name = "uppy/widget.html"
+    template_name = "uppy/clearable_file_input.html"
     is_multipart = True
+    error_messages = {"invalid_file": "Invalid file metadata"}
+
+    class Media:
+        js = [
+            "django-uppy/uppy.min.js",
+            "django-uppy/single-file-input-plugin.js",
+            "django-uppy/file-input-widget.js",
+        ]
+        css = {
+            "screen": ["django-uppy/uppy.min.css"],
+        }
 
     def __init__(
         self,
@@ -60,12 +72,26 @@ class UppyWidget(Widget):
         )
         return upload
 
-    def get_context(self, name, value, attrs: dict):
+    def get_context(self, name, value: FieldFile | None, attrs: dict):
         context: dict = super().get_context(name, value, attrs)
-        # Generate unique ID for this widget instance
         input_id = attrs.get("id", f"id_{name}")
         uppy_id = "uppy_" + input_id
+        config = self._get_config()
+        plugins = self._get_plugins(uppy_id)
+        # Update context
+        context.update(
+            {
+                "uppy": {
+                    "id": uppy_id,
+                    "target_id": input_id,
+                    "config": json.dumps(config),
+                    "plugins": json.dumps(plugins),
+                }
+            }
+        )
+        return context
 
+    def _get_config(self) -> dict:
         # Uppy configuration
         uppy_config = {
             "debug": django_settings.DEBUG,
@@ -78,22 +104,11 @@ class UppyWidget(Widget):
         }
         if self.allowed_file_types:
             uppy_config["restrictions"]["allowedFileTypes"] = self.allowed_file_types
+        return uppy_config
 
-        # Plugin configuration
-        plugins = {
-            "Dashboard": {
-                "inline": self.inline,
-                "target": f"#{uppy_id}",
-                "height": self.height,
-                "showProgressDetails": True,
-                "hideUploadButton": True,
-                "hideProgressAfterFinish": True,
-                "doneButtonHandler": False,
-                "theme": self.theme,
-                "note": f"Upload files. Max {self.max_files} files, max {self._format_size(self.max_file_size)} per file.",
-            },
-        }
-
+    def _get_plugins(self, uppy_id: str) -> dict:
+        plugins = {}
+        plugins.update(self._get_ui_plugin(uppy_id))
         # Upload plugin based on type
         upload_params = {
             "endpoint": reverse(
@@ -105,23 +120,30 @@ class UppyWidget(Widget):
             plugins["Tus"] = upload_params
         elif self.upload_type == "s3":
             plugins["AwsS3"] = upload_params
+        return plugins
 
-        # Update context
-        context.update(
-            {
-                "uppy": {
-                    "id": uppy_id,
-                    "target_id": input_id,
-                    "config": json.dumps(uppy_config),
-                    "plugins": json.dumps(plugins),
-                },
-                "upload_type": self.upload_type,
-                "value": value,
-                "is_initial": bool(value),
+    def _get_ui_plugin(self, uppy_id: str):
+        return {
+            "SingleFileInput": {
+                "target": f"#{uppy_id}",
             }
-        )
+        }
 
-        return context
+    def _get_dashboard_plugin(self, uppy_id: str):
+        return {
+            "Dashboard": {
+                "inline": self.inline,
+                "target": f"#{uppy_id}",
+                "height": self.height,
+                "showProgressDetails": True,
+                "hideUploadButton": True,
+                "hideProgressAfterFinish": True,
+                "doneButtonHandler": False,
+                "disableThumbnailGenerator": True,
+                "theme": self.theme,
+                "note": f"Upload files. Max {self.max_files} files, max {self._format_size(self.max_file_size)} per file.",
+            }
+        }
 
     def _format_size(self, size_bytes):
         """Format file size in human readable format"""
@@ -132,38 +154,3 @@ class UppyWidget(Widget):
         p = math.pow(1024, i)
         s = round(size_bytes / p, 2)
         return f"{s} {size_name[i]}"
-
-
-class UppyDashboardWidget(UppyWidget):
-    """
-    Uppy widget with Dashboard UI for better user experience.
-    """
-
-    def __init__(self, **kwargs):
-        kwargs.setdefault("inline", True)
-        kwargs.setdefault("height", 350)
-        super().__init__(**kwargs)
-
-
-class UppyDragDropWidget(UppyWidget):
-    """
-    Uppy widget with simple drag and drop area.
-    """
-
-    def __init__(self, **kwargs):
-        kwargs.setdefault("inline", False)
-        kwargs.setdefault("target", ".uppy-drag-drop")
-        super().__init__(**kwargs)
-
-
-class UppyInlineWidget(UppyWidget):
-    """
-    Uppy widget optimized for inline forms.
-    """
-
-    def __init__(self, **kwargs):
-        kwargs.setdefault("inline", True)
-        kwargs.setdefault("height", 200)
-        kwargs.setdefault("theme", "minimal")
-        kwargs.setdefault("auto_proceed", True)
-        super().__init__(**kwargs)
