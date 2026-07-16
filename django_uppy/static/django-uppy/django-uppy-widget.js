@@ -4,7 +4,7 @@ import {
   Dashboard,
   Tus,
   AwsS3,
-} from "https://releases.transloadit.com/uppy/v5.2.1/uppy.min.mjs";
+} from "./uppy.min.mjs";
 
 const plugins = { Dashboard, Tus, AwsS3 };
 
