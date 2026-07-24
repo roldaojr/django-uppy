@@ -12,7 +12,7 @@ class UploadGroupForm(forms.ModelForm):
 class TusFileUploadForm(forms.ModelForm):
     file = forms.FileField(
         widget=UppyClearableFileInput(),
-        label="File (filesystem)",
+        label="File (TUS)",
     )
 
     class Meta:
@@ -20,9 +20,16 @@ class TusFileUploadForm(forms.ModelForm):
         fields = ["group", "file"]
 
 
+class MultipartUploadForm(TusFileUploadForm):
+    file = forms.FileField(
+        widget=UppyClearableFileInput(),
+        label="File (multipart/filesystem)",
+    )
+
+
 class S3FileUploadForm(forms.ModelForm):
     file = forms.FileField(
-        widget=UppyClearableFileInput(upload_type="s3", storage="bucket"),
+        widget=UppyClearableFileInput(storage="bucket"),
         label="File (S3)",
     )
 

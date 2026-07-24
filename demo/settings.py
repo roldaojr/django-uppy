@@ -74,3 +74,6 @@ S3_MEDIA_ROOT = env.str("S3_MEDIA_ROOT", default="s3://uploads")
 STORAGES["bucket"] = s3_storage_settings_from_url(S3_MEDIA_ROOT)
 AWS_S3_CUSTOM_DOMAIN = env.str("AWS_S3_CUSTOM_DOMAIN", default=None)
 AWS_S3_URL_PROTOCOL = env.str("AWS_S3_URL_PROTOCOL", default="https:")
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int(
+    "DATA_UPLOAD_MAX_MEMORY_SIZE", default=26214400
+)  # 25MB default

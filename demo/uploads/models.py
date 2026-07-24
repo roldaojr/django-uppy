@@ -1,6 +1,11 @@
 from django.db import models
 from mimetypes import guess_type
 from django.core.files.storage import storages
+from django.db.models.fields.files import FieldFile
+
+
+def secondary_storage():
+    return storages["bucket"]
 
 
 class UploadGroup(models.Model):
@@ -14,6 +19,7 @@ class AbstractFileUpload(models.Model):
     group = models.ForeignKey(
         UploadGroup, on_delete=models.CASCADE, blank=True, null=True
     )
+    file: FieldFile
 
     class Meta:
         abstract = True
@@ -48,13 +54,18 @@ class BucketFileUpload(AbstractFileUpload):
     file = models.FileField(
         upload_to="uploads/",
         max_length=255,
-        storage=storages["bucket"],
+        storage=secondary_storage,
         blank=True,
         null=True,
     )
 
 
 class TusFileUpload(FileUpload):
+    class Meta:
+        proxy = True
+
+
+class MultipartFileUpload(FileUpload):
     class Meta:
         proxy = True
 

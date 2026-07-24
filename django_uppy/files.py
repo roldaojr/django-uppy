@@ -5,10 +5,14 @@ from django.core.signals import request_finished
 
 
 class TemporaryUploadedFile(File):
-    storage: Storage
     """
     A file uploaded to a temporary location (i.e. stream-to-disk).
     """
+
+    storage: Storage
+    file: File
+    original_name: str
+    tmp_name: str
 
     def __init__(self, original_name: str, tmp_name: str, *args, **kwargs):
         file = None
@@ -22,5 +26,4 @@ class TemporaryUploadedFile(File):
 
     def close(self, *args, **kwargs):
         self.file.close()
-        # self.storage.delete(self.tmp_name)
         request_finished.disconnect(self.close)

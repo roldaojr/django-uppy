@@ -13,6 +13,7 @@ __defaults = {
 
 
 def get_setting(name: str) -> Any:
+    name = name.upper()
     if name not in __defaults:
         raise ValueError(f"Invalid setting name: {name}")
     return getattr(django_settings, f"{PREFIX}_{name}", __defaults.get(name))

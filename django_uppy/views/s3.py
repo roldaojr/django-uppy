@@ -12,20 +12,23 @@ from ..settings import get_setting
 
 @method_decorator(csrf_exempt, name="dispatch")
 class BaseS3UploadView(View):
-    def dispatch(self, request: HttpRequest, storage: str, *args, **kwargs):
-        self.storage: Storage = storages[storage]
+    @property
+    def bucket(self):
         if not hasattr(self.storage, "bucket"):
             raise BadRequest("Invalid params")
-        self.bucket = self.storage.bucket
+        return self.storage.bucket
+
+    def dispatch(self, request: HttpRequest, storage: str = None, *args, **kwargs):
+        self.storage: Storage = storages[storage or "default"]
         return super().dispatch(request, *args, **kwargs)
 
     def get_upload_params(self, kwargs: dict):
         filename = kwargs.get("filename")
         content_type = kwargs.get("type")
-        tmp_path = get_setting("TMP_PATH")
+        tmp_prefix = get_setting("TMP_PATH")
         upload_id = get_random_string(32)
-        key = f"{tmp_path}/{upload_id}-{slugify(filename)}"
-        return key, content_type
+        tmp_path = f"{tmp_prefix}/{upload_id}-{slugify(filename)}"
+        return tmp_path, content_type
 
 
 class UploadView(BaseS3UploadView):
@@ -45,7 +48,7 @@ class UploadView(BaseS3UploadView):
 class MultipartInitView(BaseS3UploadView):
     def post(self, request: HttpRequest):
         data = json.loads(request.body)
-        key, content_type = self.get_upload_params(data)
+        key, _ = self.get_upload_params(data)
         bucket_object = self.bucket.Object(key)
         params = self.storage._get_write_parameters(bucket_object.key)
         upload = bucket_object.initiate_multipart_upload(**params)

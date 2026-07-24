@@ -1,13 +1,14 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
+    MultipartFileUpload,
     UploadGroup,
     BucketFileUpload,
     FileUpload,
     TusFileUpload,
     S3FileUpload,
 )
-from .forms import TusFileUploadForm, S3FileUploadForm
+from .forms import MultipartUploadForm, TusFileUploadForm, S3FileUploadForm
 
 
 class UploadedFileInline(admin.TabularInline):
@@ -43,6 +44,11 @@ class BaseFileUploadAdmin(admin.ModelAdmin):
 @admin.register(FileUpload)
 class ClassicFileUploadAdmin(BaseFileUploadAdmin):
     pass
+
+
+@admin.register(MultipartFileUpload)
+class MultipartFileUploadAdmin(BaseFileUploadAdmin):
+    form = MultipartUploadForm
 
 
 @admin.register(BucketFileUpload)

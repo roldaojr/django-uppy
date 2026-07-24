@@ -1,6 +1,6 @@
 from django.urls import path
 from .views.tus import TusUploadView
-from .views import s3
+from .views import s3_compat as s3, multipart
 
 urlpatterns = [
     # TUS protocol endpoints for resumable uploads
@@ -25,5 +25,10 @@ urlpatterns = [
         "<str:storage>/s3/multipart/<str:upload_id>/complete",
         s3.MultipartCompleteView.as_view(),
         name="uppy-s3-multipart-complete",
+    ),
+    path(
+        "<str:storage>/upload/<path:filename>",
+        multipart.UploadFileView.as_view(),
+        name="uppy-file-upload",
     ),
 ]

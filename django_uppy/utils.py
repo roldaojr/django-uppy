@@ -4,11 +4,10 @@ from .settings import get_setting
 
 
 def get_file_upload_path(upload_id, filename=None, part=None):
-    suffix = "/"
-    tmp_path = get_setting("TMP_PATH", "z-uploads.tmp")
+    suffix = ""
+    tmp_path = get_setting("TMP_PATH")
     if filename:
-        slugname = slugify(filename)
-        suffix = f"_{slugname}"
+        suffix = f"-{slugify(filename)}"
     if part is not None:
         suffix = f"/part{part}"
     return f"{tmp_path}/{upload_id}{suffix}"

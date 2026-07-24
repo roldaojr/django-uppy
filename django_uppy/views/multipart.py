@@ -1,195 +1,87 @@
 import hashlib
-from urllib.parse import quote
-
-from django.core.files.storage import storages, Storage
-from django.http import HttpRequest
+import json
+from urllib.parse import urlencode
+from django.core.files.base import ContentFile
+from django.http.request import BadRequest
 from django.urls import reverse
+from django.views.generic import View
+from django.http import HttpRequest, JsonResponse, HttpResponse
+from django.core.files.storage import storages, Storage
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.utils.crypto import get_random_string
-from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from rest_framework.response import Response
-
-from ..utils import get_file_upload_path
+from django.utils.text import slugify
 from ..settings import get_setting
+from ..utils import get_file_upload_path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class S3MultipartView(APIView):
-    """
-    Uppy Companion compatible S3 multipart upload endpoints.
-    Compatible with @uppy/aws-s3 plugin.
-    """
+@method_decorator(csrf_exempt, name="dispatch")
+class BaseUploadView(View):
+    def dispatch(self, request: HttpRequest, storage: str = None, *args, **kwargs):
+        self.storage_name = storage or "default"
+        self.storage: Storage = storages[self.storage_name]
+        return super().dispatch(request, *args, **kwargs)
 
-    parser_classes = [JSONParser, FormParser, MultiPartParser]
-    permission_classes = get_setting("PERMISSION_CLASSES")
-    storage: Storage = storages[get_setting("STORAGE_NAME")]
+    def get_upload_params(self, kwargs: dict):
+        filename = kwargs.get("filename")
+        content_type = kwargs.get("type")
+        tmp_path = get_setting("TMP_PATH")
+        upload_id = get_random_string(32)
+        key = f"{tmp_path}/{upload_id}-{slugify(filename)}"
+        return key, content_type
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Check if S3 storage
-        self.is_s3 = hasattr(self.storage, "bucket")
 
-    def get(self, request: HttpRequest, *args, **kwargs):
-        """Initiate multipart upload"""
-        filename = request.GET.get("filename")
-        part_count = request.GET.get("partCount")
-        file_type = request.GET.get("type", "")
-        if not filename:
-            return Response({"error": "filename is required"}, status=400)
-        if not part_count:
-            return Response({"error": "partCount is required"}, status=400)
+class UploadView(BaseUploadView):
+    def get(self, request: HttpRequest):
+        """Get URL for single part upload"""
+        upload_id = get_random_string(32)
+        url = request.build_absolute_uri(
+            reverse(
+                "uppy-file-upload",
+                kwargs={"storage": self.storage_name, "filename": upload_id},
+            )
+        )
+        return JsonResponse({"method": "PUT", "url": url})
+
+
+class MultipartInitView(BaseUploadView):
+    def post(self, request: HttpRequest):
+        """Initialize multipart upload"""
+        data: dict = json.loads(request.body)
+        filename = data.get("filename")
+        upload_id = get_random_string(32)
+        return JsonResponse({"uploadId": upload_id, "key": filename})
+
+
+class MultipartPartView(BaseUploadView):
+    def get(self, request: HttpRequest, upload_id: str, part_number: int):
+        """Get URL for a part of a multipart upload"""
+        key = request.GET.get("key")
+        if not key:
+            return JsonResponse({"error": "Missing key parameter"}, status=400)
+        filename = f"{upload_id}/part{part_number}"
+        url = request.build_absolute_uri(
+            reverse(
+                "uppy-file-upload",
+                kwargs={"storage": self.storage_name, "filename": filename},
+            )
+        )
+        return JsonResponse(dict(url=url + "?etag"))
+
+
+class MultipartCompleteView(BaseUploadView):
+    def post(self, request: HttpRequest, upload_id: str):
+        """Complete a multipart upload"""
+        key = request.GET.get("key")
+        data: dict = json.loads(request.body)
+        parts = data.get("parts", [])
+        if not all([key, parts]):
+            return JsonResponse({"error": "key and parts are required"}, status=400)
         try:
-            part_count = int(part_count)
-        except ValueError:
-            return Response({"error": "Invalid partCount"}, status=400)
-
-        if self.is_s3:
-            return self._init_s3_multipart(filename, part_count, file_type, request)
-        else:
-            return self._init_local_multipart(filename, part_count, file_type, request)
-
-    def post(self, request: HttpRequest, *args, **kwargs):
-        """Complete multipart upload"""
-        upload_id = request.GET.get("uploadId")
-        filename = request.GET.get("filename")
-
-        if not upload_id:
-            return Response({"error": "uploadId is required"}, status=400)
-
-        if self.is_s3:
-            return self._complete_s3_multipart(upload_id, filename, request.data)
-        else:
-            return self._complete_local_multipart(upload_id, filename, request.data)
-
-    def delete(self, request: HttpRequest, *args, **kwargs):
-        """Abort multipart upload"""
-        upload_id = request.GET.get("uploadId")
-        filename = request.GET.get("filename")
-
-        if not upload_id:
-            return Response({"error": "uploadId is required"}, status=400)
-
-        if self.is_s3:
-            return self._abort_s3_multipart(upload_id, filename)
-        else:
-            return self._abort_local_multipart(upload_id, filename)
-
-    def _init_s3_multipart(self, filename, part_count, file_type, request):
-        """Initialize S3 multipart upload"""
-        try:
-            # Generate unique key
-            upload_id = get_random_string(32)
-            key = f"uploads/{upload_id}/{quote(filename)}"
-
-            # Create S3 multipart upload
-            bucket_object = self.storage.bucket.Object(key)
-            upload = bucket_object.initiate_multipart_upload(
-                ContentType=file_type,
-                **self.storage._get_write_parameters(bucket_object.key),
-            )
-
-            # Generate presigned URLs for each part
-            upload_urls = []
-            for part_num in range(1, part_count + 1):
-                url = self.storage.connection.meta.client.generate_presigned_url(
-                    ClientMethod="upload_part",
-                    Params={
-                        "Bucket": upload.bucket_name,
-                        "Key": upload.object_key,
-                        "PartNumber": part_num,
-                        "UploadId": upload.id,
-                    },
-                    ExpiresIn=3600,
-                )
-                upload_urls.append(url)
-
-            # Generate complete URL
-            complete_url = self.request.build_absolute_uri(
-                f"{reverse('uppy-s3-multipart')}?uploadId={upload.id}&filename={quote(filename)}"
-            )
-
-            return Response(
-                {
-                    "uploadId": upload.id,
-                    "key": key,
-                    "parts_urls": upload_urls,
-                    "complete_url": complete_url,
-                },
-                headers={"Cache-control": "no-cache"},
-            )
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-    def _init_local_multipart(self, filename, part_count, file_type, request):
-        """Initialize local multipart upload"""
-        try:
-            upload_id = get_random_string(32)
-
-            # Generate upload URLs for local storage
-            upload_urls = []
-            for part_num in range(1, part_count + 1):
-                url = request.build_absolute_uri(
-                    f"{reverse('uppy-s3-multipart')}?uploadId={upload_id}&partNumber={part_num}&filename={quote(filename)}"
-                )
-                upload_urls.append(url)
-
-            # Generate complete URL
-            complete_url = request.build_absolute_uri(
-                f"{reverse('uppy-s3-multipart')}?uploadId={upload_id}&filename={quote(filename)}"
-            )
-
-            return Response(
-                {
-                    "uploadId": upload_id,
-                    "parts_urls": upload_urls,
-                    "complete_url": complete_url,
-                },
-                headers={"Cache-control": "no-cache"},
-            )
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-    def _complete_s3_multipart(self, upload_id, filename, data):
-        """Complete S3 multipart upload"""
-        try:
-            parts = data.get("parts", [])
-            if not parts:
-                return Response({"error": "parts are required"}, status=400)
-
-            # Find the key for this upload
-            # This is a simplified approach - in production you'd want to track this
-            key = f"uploads/{upload_id.split('-')[0]}/{quote(filename)}"
-
-            # Complete multipart upload
-            result = self.storage.connection.meta.client.complete_multipart_upload(
-                Bucket=self.storage.bucket.name,
-                Key=key,
-                UploadId=upload_id,
-                MultipartUpload={"Parts": parts},
-            )
-
-            return Response(
-                {
-                    "location": result.get("Location", ""),
-                    "etag": result.get("ETag", ""),
-                    "key": key,
-                }
-            )
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-    def _complete_local_multipart(self, upload_id, filename, data):
-        """Complete local multipart upload"""
-        try:
-            parts = data.get("parts", [])
-            if not parts:
-                return Response({"error": "parts are required"}, status=400)
-
-            # Combine parts into final file
-            final_path = get_file_upload_path(upload_id, filename=filename)
-
+            final_path = get_file_upload_path(upload_id, filename=key)
             with self.storage.open(final_path, "wb+") as final_file:
                 for part_num in range(1, len(parts) + 1):
                     part_path = get_file_upload_path(upload_id, part=part_num)
@@ -197,82 +89,26 @@ class S3MultipartView(APIView):
                         with self.storage.open(part_path, "rb") as part_file:
                             final_file.write(part_file.read())
                         self.storage.delete(part_path)
-
+                    else:
+                        raise BadRequest(f"Part {part_num} not found")
             # Clean up
             self.storage.delete(get_file_upload_path(upload_id))
-
-            return Response(
+            return JsonResponse(
                 {
                     "location": self.storage.url(final_path),
                     "key": final_path,
                 }
             )
-
         except Exception as e:
-            return Response({"error": str(e)}, status=500)
+            return JsonResponse({"error": str(e)}, status=500)
 
-    def _abort_s3_multipart(self, upload_id, filename):
-        """Abort S3 multipart upload"""
-        try:
-            # Find the key for this upload
-            key = f"uploads/{upload_id.split('-')[0]}/{quote(filename)}"
 
-            self.storage.connection.meta.client.abort_multipart_upload(
-                Bucket=self.storage.bucket.name, Key=key, UploadId=upload_id
-            )
-
-            return Response(status=204)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-    def _abort_local_multipart(self, upload_id, filename):
-        """Abort local multipart upload"""
-        try:
-            # Clean up all parts
-            for part_num in range(1, 100):  # Reasonable limit
-                part_path = get_file_upload_path(upload_id, part=part_num)
-                if self.storage.exists(part_path):
-                    self.storage.delete(part_path)
-
-            # Clean up upload info
-            self.storage.delete(get_file_upload_path(upload_id))
-
-            return Response(status=204)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-    def put(self, request, *args, **kwargs):
-        """Handle part upload for local storage"""
-        if self.is_s3:
-            return Response(
-                {"error": "Direct part upload not supported for S3"}, status=400
-            )
-
-        upload_id = request.GET.get("uploadId")
-        part_number = request.GET.get("partNumber")
-        filename = request.GET.get("filename")
-
-        if not all([upload_id, part_number, filename]):
-            return Response(
-                {"error": "uploadId, partNumber, and filename are required"}, status=400
-            )
-
-        try:
-            part_number = int(part_number)
-        except ValueError:
-            return Response({"error": "Invalid partNumber"}, status=400)
-
-        try:
-            # Save part
-            part_path = get_file_upload_path(upload_id, part=part_number)
-            if "file" in request.FILES:
-                self.storage.save(part_path, request.FILES["file"])
-            else:
-                self.storage.save(part_path, request.body)
-
-            return Response({"etag": hashlib.md5(request.body).hexdigest()})
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
+@method_decorator(csrf_exempt, name="dispatch")
+class UploadFileView(View):
+    def put(self, request: HttpRequest, storage: str = None, filename: str = None):
+        """Handle file upload to storage"""
+        file_path = get_file_upload_path(filename)
+        storage: Storage = storages[storage or "default"]
+        storage.save(file_path, ContentFile(request.body))
+        etag = hashlib.md5(request.body).hexdigest()
+        return HttpResponse(headers={"Etag": etag})

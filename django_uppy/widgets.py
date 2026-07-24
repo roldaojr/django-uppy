@@ -30,13 +30,14 @@ class UppyClearableFileInput(ClearableFileInput):
 
     def __init__(
         self,
-        upload_type="tus",  # 'tus' or 's3'
+        upload_type="multipart",  # 'tus' or 'multipart'
         storage="default",
         auto_proceed=False,
         allow_multiple=False,
         max_files=1,
         max_file_size=None,
         allowed_file_types=None,
+        chunk_size=None,
         inline=True,
         height=300,
         theme="minimal",
@@ -53,6 +54,7 @@ class UppyClearableFileInput(ClearableFileInput):
         self.height = height
         self.theme = theme
         self.storage_name = storage
+        self.chunk_size = chunk_size
 
     def value_from_datadict(self, data, files, name):
         filename = data.get(name, "")
@@ -115,10 +117,11 @@ class UppyClearableFileInput(ClearableFileInput):
                 "uppy-tus-upload", kwargs={"storage": self.storage_name}
             ),
             "retryDelays": [0, 1000, 3000, 5000],
+            "chunk_size": self.chunk_size,
         }
         if self.upload_type == "tus":
             plugins["Tus"] = upload_params
-        elif self.upload_type == "s3":
+        else:
             plugins["AwsS3"] = upload_params
         return plugins
 
