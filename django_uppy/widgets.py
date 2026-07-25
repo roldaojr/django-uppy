@@ -1,12 +1,15 @@
 import json
 import math
 from django.conf import settings as django_settings
-from django.core.exceptions import ValidationError
+from django.core.files import File
+from django.core.files.storage import Storage, storages
+from django.forms import CheckboxInput, ValidationError
 from django.forms.widgets import ClearableFileInput
 from django.db.models.fields.files import FieldFile
 from django.urls import reverse
 from .settings import get_setting
 from .files import TemporaryUploadedFile
+from .utils import get_file_upload_path
 
 
 class UppyClearableFileInput(ClearableFileInput):
@@ -17,6 +20,7 @@ class UppyClearableFileInput(ClearableFileInput):
     template_name = "uppy/clearable_file_input.html"
     is_multipart = True
     error_messages = {"invalid_file": "Invalid file metadata"}
+    separator = "//"
 
     class Media:
         js = [
@@ -56,23 +60,30 @@ class UppyClearableFileInput(ClearableFileInput):
         self.storage_name = storage
         self.chunk_size = chunk_size
 
-    def value_from_datadict(self, data, files, name):
-        filename = data.get(name, "")
+    def value_from_datadict(self, data: dict, files, name:str):
+        filename: str = data.get(name, "")
         if not filename:
             return
 
-        if "//" not in filename:
-            raise ValidationError(
-                self.error_messages["invalid_file"],
-                code="invalid_file",
-            )
+        # clearable file input logic
+        self.checked = self.clear_checkbox_name(name) in data
+        if not self.is_required and CheckboxInput().value_from_datadict(
+            data, files, self.clear_checkbox_name(name)
+        ):
+            if filename:
+                # If the user contradicts themselves (uploads a new file AND
+                # checks the "clear" checkbox), we return a unique marker
+                # object that FileField will turn into a ValidationError.
+                return FILE_INPUT_CONTRADICTION
+            # False signals to clear any existing value, as opposed to just None
+            return False
 
-        upload_id, original_name = filename.split("//")
-        tmp_name = f"{get_setting('TMP_PATH')}/{upload_id}"
-        upload = TemporaryUploadedFile(
-            original_name, tmp_name, storage=self.storage_name
+        if self.separator not in filename:
+            return None
+        upload_id, original_name = filename.rsplit(self.separator, 1)
+        return TemporaryUploadedFile(
+            original_name, get_file_upload_path(upload_id), storage=self.storage_name
         )
-        return upload
 
     def get_context(self, name, value: FieldFile | None, attrs: dict):
         context: dict = super().get_context(name, value, attrs)

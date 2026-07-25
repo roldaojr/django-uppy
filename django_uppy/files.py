@@ -15,15 +15,12 @@ class TemporaryUploadedFile(File):
     tmp_name: str
 
     def __init__(self, original_name: str, tmp_name: str, *args, **kwargs):
-        file = None
-        if original_name and tmp_name:
-            self.original_name = original_name
-            self.tmp_name = tmp_name
-            self.storage: Storage = storages[kwargs.pop("storage", "default")]
-            file = self.storage.open(self.tmp_name, "rb")
-            request_finished.connect(self.close)
+        self.storage: Storage = storages[kwargs.pop("storage", "default")]
+        file = self.storage.open(tmp_name, "rb")
+        request_finished.connect(self.close)
         super().__init__(file, name=original_name, *args, **kwargs)
 
     def close(self, *args, **kwargs):
         self.file.close()
+        self.storage.delete(self.tmp_name)
         request_finished.disconnect(self.close)
