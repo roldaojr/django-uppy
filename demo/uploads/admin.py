@@ -11,15 +11,24 @@ from .models import (
 from .forms import MultipartUploadForm, TusFileUploadForm, S3FileUploadForm
 
 
-class UploadedFileInline(admin.TabularInline):
-    model = TusFileUpload
-    form = TusFileUploadForm
+class FileUploadInline(admin.TabularInline):
+    model = FileUpload
+    extra = 1
+
+class S3FileUploadInline(admin.TabularInline):
+    model = S3FileUpload
+    form = S3FileUploadForm
     extra = 1
 
 
 @admin.register(UploadGroup)
 class UploadGroupAdmin(admin.ModelAdmin):
     list_display = ("name",)
+
+    def get_inlines(self, request, obj):
+        if obj:
+            return [FileUploadInline, S3FileUploadInline]
+        return []
 
 
 class BaseFileUploadAdmin(admin.ModelAdmin):
