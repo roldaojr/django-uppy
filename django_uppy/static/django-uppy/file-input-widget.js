@@ -6,7 +6,7 @@ const plugins = {
 };
 
 function initUppyFileInput(widget, prefix = undefined) {
-  if(prefix) {
+  if (prefix) {
     // update dataset values
     Object.keys(widget.dataset).forEach(key => {
       widget.dataset[key] = widget.dataset[key].replace("__prefix__", prefix);
@@ -14,12 +14,12 @@ function initUppyFileInput(widget, prefix = undefined) {
   }
   const targetId = widget.dataset.target;
   const target = document.getElementById(targetId);
-  if(target.name.includes("__prefix__")) return; // skip formset template
-  if(target.uppy) return; // skip already loaded
+  if (target.name.includes("__prefix__")) return; // skip formset template
+  if (target.uppy) return; // skip already loaded
   const form = target.form;
   // handle form set add
-  if(!form.dataset.hasFormsetListener) {
-    form.addEventListener("formset:added", function(e) {
+  if (!form.dataset.hasFormsetListener) {
+    form.addEventListener("formset:added", function (e) {
       const prefix = e.target.id.split("-").pop();
       const newWidget = e.target.querySelector(".uppy-widget");
       initUppyFileInput(newWidget, prefix);
@@ -44,9 +44,9 @@ function initUppyFileInput(widget, prefix = undefined) {
     uppy.use(plugins[name], config);
   }
   uppy.on("upload-success", (file, response) => {
-    const uploadUrl = response.uploadURL; 
+    const uploadUrl = response.uploadURL;
     const uploadId = uploadUrl.substring(uploadUrl.lastIndexOf('/') + 1);
-    target.value = `${uploadId}//${file.name}`;
+    target.value = `s3-upload://${uploadId}/${file.name}`;
     form.uploadsComplete[targetId] = true;
   });
   uppy.on("complete", () => {
@@ -64,8 +64,8 @@ function initUppyFileInput(widget, prefix = undefined) {
 
 document.addEventListener('DOMContentLoaded', () => {
   const widgets = document.querySelectorAll(".uppy-widget");
-    for (let widget of widgets) {
-      initUppyFileInput(widget);
-    }
+  for (let widget of widgets) {
+    initUppyFileInput(widget);
   }
+}
 );

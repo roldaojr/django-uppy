@@ -1,8 +1,10 @@
 import json
 import math
 from typing import ClassVar
+from urllib.parse import ParseResult, urlparse
 
 from django.conf import settings as django_settings
+from django.core.exceptions import ValidationError
 from django.db.models.fields.files import FieldFile
 from django.forms import CheckboxInput
 from django.forms.widgets import FILE_INPUT_CONTRADICTION, ClearableFileInput
@@ -21,7 +23,6 @@ class UppyClearableFileInput(ClearableFileInput):
     template_name = "uppy/clearable_file_input.html"
     is_multipart = True
     error_messages: ClassVar[dict[str, str]] = {"invalid_file": "Invalid file metadata"}
-    separator = "//"
 
     class Media:
         js: ClassVar[list[str]] = [
@@ -79,9 +80,15 @@ class UppyClearableFileInput(ClearableFileInput):
             # False signals to clear any existing value, as opposed to just None
             return False
 
-        if self.separator not in filename:
-            return None
-        upload_id, original_name = filename.rsplit(self.separator, 1)
+        try:
+            uri: ParseResult = urlparse(data.get(name, ""))
+        except ValueError:
+            raise ValidationError(
+                self.error_messages["invalid_file"], code="invalid_file"
+            )
+        upload_id = uri.netloc
+        original_name = uri.path.lstrip("/")
+
         return TemporaryUploadedFile(
             original_name, get_file_upload_path(upload_id), storage=self.storage_name
         )
