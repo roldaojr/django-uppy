@@ -4,11 +4,10 @@ from django.core.files.storage import Storage, storages
 from django.http import HttpRequest
 from django.utils.crypto import get_random_string
 from django.utils.decorators import method_decorator
-from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from ..settings import get_setting
+from ..utils import get_file_upload_path
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,6 @@ class BaseUploadView(View):
     def get_upload_params(self, kwargs: dict):
         filename = kwargs.get("filename")
         content_type = kwargs.get("type")
-        tmp_path = get_setting("TMP_PATH")
         upload_id = get_random_string(32)
-        key = f"{tmp_path}/{upload_id}-{slugify(filename)}"
+        key = get_file_upload_path(upload_id, filename=filename)
         return key, content_type

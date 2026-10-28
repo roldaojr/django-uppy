@@ -1,16 +1,19 @@
 import base64
 import json
 from io import BytesIO
+
 from django.core.exceptions import BadRequest
-from django.core.files.storage import storages, Storage
-from django.http import HttpRequest, HttpResponse, Http404
+from django.core.files.base import ContentFile
+from django.core.files.storage import Storage, storages
+from django.http import Http404, HttpRequest, HttpResponse
 from django.urls import reverse
-from django.views.generic import View
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.utils.crypto import get_random_string
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import View
 
 from ..settings import get_setting
+from ..utils import get_file_upload_path
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -25,10 +28,6 @@ class TusUploadView(View):
     TUS_MAX_SIZE = get_setting("TUS_MAX_SIZE")
     storage: Storage
     request: HttpRequest
-    tmp_path: str
-
-    def __init__(self):
-        self.tmp_path = get_setting("TMP_PATH").strip("/")
 
     def _check_version(self):
         """Check TUS version"""
@@ -36,7 +35,7 @@ class TusUploadView(View):
         if not tus_version or tus_version != self.TUS_VERSION:
             response = HttpResponse(status=412)
             response["Tus-Version"] = self.TUS_VERSION
-            raise Http404(response)
+            return response
         return None
 
     def _read_file_info(self, file_path: str):
@@ -47,7 +46,7 @@ class TusUploadView(View):
         except FileNotFoundError:
             raise Http404("File info not found")
 
-    def dispatch(self, request, *args, **kwargs: dict):
+    def dispatch(self, request: HttpRequest, *args, **kwargs: dict):
         if request.method.lower() in ["post", "put", "patch"]:
             version_mismatch = self._check_version()
             if version_mismatch is not None:
@@ -91,9 +90,12 @@ class TusUploadView(View):
                     metadata[key] = base64.b64decode(value).decode("utf-8")
         # Generate unique upload ID
         upload_id = get_random_string(32)
-        upload_path = f"{self.tmp_path}/{upload_id}"
+        upload_path = get_file_upload_path(upload_id)
         # Create empty file for upload
         self.storage.save(upload_path, BytesIO())
+        # Save upload info, read back by HEAD to resume uploads
+        upload_info = {"size": upload_length, "metadata": metadata}
+        self.storage.save(f"{upload_path}.info", ContentFile(json.dumps(upload_info)))
         # Return upload URL
         response = HttpResponse(status=201)
         response["Location"] = self.request.build_absolute_uri(
@@ -106,7 +108,7 @@ class TusUploadView(View):
 
     def head(self, request, upload_id: str):
         """TUS protocol HEAD request - get upload status"""
-        file_path = f"{self.tmp_path}/{upload_id}"
+        file_path = get_file_upload_path(upload_id)
         upload_info = self._read_file_info(file_path)
         current_offset = self.storage.size(file_path)
         response = HttpResponse(status=200)
@@ -131,7 +133,7 @@ class TusUploadView(View):
             raise BadRequest("Invalid Upload-Offset header")
 
         # Get upload offset
-        file_path = f"{self.tmp_path}/{upload_id}"
+        file_path = get_file_upload_path(upload_id)
         try:
             current_offset = self.storage.size(file_path)
         except FileNotFoundError:
@@ -154,10 +156,11 @@ class TusUploadView(View):
     def delete(self, request, upload_id: str):
         """TUS protocol DELETE request - terminate upload"""
         self._check_version()
-        file_path = f"{self.tmp_path}/{upload_id}"
-        try:
-            self.storage.delete(file_path)
-        except FileNotFoundError:
-            pass
+        file_path = get_file_upload_path(upload_id)
+        for path in (file_path, f"{file_path}.info"):
+            try:
+                self.storage.delete(path)
+            except FileNotFoundError:
+                pass
         response = HttpResponse(status=204)
         return response
