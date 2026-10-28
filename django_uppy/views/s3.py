@@ -1,12 +1,14 @@
 import json
-from django.http.request import BadRequest
-from django.views.generic import View
+
+from django.core.files.storage import Storage, storages
 from django.http import HttpRequest, JsonResponse
-from django.core.files.storage import storages, Storage
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+from django.http.request import BadRequest
 from django.utils.crypto import get_random_string
+from django.utils.decorators import method_decorator
 from django.utils.text import slugify
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import View
+
 from ..settings import get_setting
 
 
@@ -37,11 +39,15 @@ class UploadView(BaseS3UploadView):
         client = self.bucket.meta.client
         presigned_url = client.generate_presigned_url(
             ClientMethod="put_object",
-            Params=dict(Bucket=self.bucket.name, Key=key, ContentType=content_type),
+            Params={
+                "Bucket": self.bucket.name,
+                "Key": key,
+                "ContentType": content_type,
+            },
             ExpiresIn=3600,
         )
         return JsonResponse(
-            dict(method="PUT", url=presigned_url, fields={}, headers={})
+            {"method": "PUT", "url": presigned_url, "fields": {}, "headers": {}}
         )
 
 
@@ -61,15 +67,15 @@ class MultipartPartView(BaseS3UploadView):
         client = self.bucket.meta.client
         presigned_url = client.generate_presigned_url(
             ClientMethod="upload_part",
-            Params=dict(
-                Bucket=self.bucket.name,
-                Key=key,
-                PartNumber=part_number,
-                UploadId=upload_id,
-            ),
+            Params={
+                "Bucket": self.bucket.name,
+                "Key": key,
+                "PartNumber": part_number,
+                "UploadId": upload_id,
+            },
             ExpiresIn=3600,
         )
-        return JsonResponse(dict(url=presigned_url))
+        return JsonResponse({"url": presigned_url})
 
 
 class MultipartCompleteView(BaseS3UploadView):

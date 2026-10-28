@@ -7,34 +7,19 @@ services:
       - .:/app
     environment:
       DEBUG: True
-      S3_MEDIA_ROOT: s3+http://minioadmin:minioadmin@host.docker.internal:9000/uploads
-      AWS_S3_CUSTOM_DOMAIN: localhost:9000/uploads
+      S3_MEDIA_ROOT: s3+http://test:test@host.docker.internal:4566/bucket
+      AWS_S3_CUSTOM_DOMAIN: localhost:4566/bucket
       AWS_S3_URL_PROTOCOL: "http:"
-  minio:
-    image: quay.io/minio/minio
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  storage:
+    image: ministackorg/ministack:latest
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - 4566:4566
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-      MINIO_API_CORS_ALLOW_ORIGIN: "*"
-    command: server /data --console-address ":9001"
+      S3_PERSIST: 1
+      S3_DATA_DIR: /data
     volumes:
-      - minio_data:/data
-
-  minio-buckets:
-    image: quay.io/minio/mc
-    depends_on:
-      - minio
-    restart: no
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set storage http://minio:9000 minioadmin minioadmin;
-      /usr/bin/mc mb storage/uploads;
-      /usr/bin/mc anonymous set public storage/uploads;
-      exit 0;
-      "
-
-volumes:
-  minio_data:
+      - ./init.d/aws:/etc/localstack/init/ready.d:ro
+      - ./media/bucket:/data/000000000000/bucket

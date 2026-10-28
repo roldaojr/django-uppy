@@ -1,19 +1,21 @@
 import hashlib
 import json
+import logging
 from urllib.parse import urlencode
+
 from django.core.files.base import ContentFile
+from django.core.files.storage import Storage, storages
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.http.request import BadRequest
 from django.urls import reverse
-from django.views.generic import View
-from django.http import HttpRequest, JsonResponse, HttpResponse
-from django.core.files.storage import storages, Storage
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.utils.crypto import get_random_string
+from django.utils.decorators import method_decorator
 from django.utils.text import slugify
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import View
+
 from ..settings import get_setting
 from ..utils import get_file_upload_path
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ class MultipartPartView(BaseUploadView):
                 kwargs={"storage": self.storage_name, "filename": filename},
             )
         )
-        return JsonResponse(dict(url=url + "?etag"))
+        return JsonResponse({"url": url + "?etag"})
 
 
 class MultipartCompleteView(BaseUploadView):
@@ -99,13 +101,15 @@ class MultipartCompleteView(BaseUploadView):
                     "key": final_path,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return JsonResponse({"error": str(e)}, status=500)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class UploadFileView(View):
-    def put(self, request: HttpRequest, storage: str = None, filename: str = None):
+    def put(
+        self, request: HttpRequest, storage: str | None = None, filename: str = None
+    ):
         """Handle file upload to storage"""
         file_path = get_file_upload_path(filename)
         storage: Storage = storages[storage or "default"]

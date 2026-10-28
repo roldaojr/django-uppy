@@ -1,14 +1,15 @@
 import json
 import math
+from typing import ClassVar
+
 from django.conf import settings as django_settings
-from django.core.files import File
-from django.core.files.storage import Storage, storages
-from django.forms import CheckboxInput, ValidationError
-from django.forms.widgets import ClearableFileInput
 from django.db.models.fields.files import FieldFile
+from django.forms import CheckboxInput
+from django.forms.widgets import FILE_INPUT_CONTRADICTION, ClearableFileInput
 from django.urls import reverse
-from .settings import get_setting
+
 from .files import TemporaryUploadedFile
+from .settings import get_setting
 from .utils import get_file_upload_path
 
 
@@ -19,16 +20,16 @@ class UppyClearableFileInput(ClearableFileInput):
 
     template_name = "uppy/clearable_file_input.html"
     is_multipart = True
-    error_messages = {"invalid_file": "Invalid file metadata"}
+    error_messages: ClassVar[dict[str, str]] = {"invalid_file": "Invalid file metadata"}
     separator = "//"
 
     class Media:
-        js = [
+        js: ClassVar[list[str]] = [
             "django-uppy/uppy.min.js",
             "django-uppy/single-file-input-plugin.js",
             "django-uppy/file-input-widget.js",
         ]
-        css = {
+        css: ClassVar[dict[str, list[str]]] = {
             "screen": ["django-uppy/uppy.min.css"],
         }
 
@@ -60,7 +61,7 @@ class UppyClearableFileInput(ClearableFileInput):
         self.storage_name = storage
         self.chunk_size = chunk_size
 
-    def value_from_datadict(self, data: dict, files, name:str):
+    def value_from_datadict(self, data: dict, files, name: str):
         filename: str = data.get(name, "")
         if not filename:
             return
@@ -164,7 +165,7 @@ class UppyClearableFileInput(ClearableFileInput):
         if size_bytes == 0:
             return "0 bytes"
         size_name = ("bytes", "KB", "MB", "GB", "TB")
-        i = int(math.floor(math.log(size_bytes, 1024)))
+        i = math.floor(math.log(size_bytes, 1024))
         p = math.pow(1024, i)
         s = round(size_bytes / p, 2)
         return f"{s} {size_name[i]}"
