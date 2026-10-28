@@ -1,36 +1,17 @@
 import json
 
-from django.core.files.storage import Storage, storages
 from django.http import HttpRequest, JsonResponse
 from django.http.request import BadRequest
-from django.utils.crypto import get_random_string
-from django.utils.decorators import method_decorator
-from django.utils.text import slugify
-from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import View
 
-from ..settings import get_setting
+from .base import BaseUploadView
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class BaseS3UploadView(View):
+class BaseS3UploadView(BaseUploadView):
     @property
     def bucket(self):
         if not hasattr(self.storage, "bucket"):
             raise BadRequest("Invalid params")
         return self.storage.bucket
-
-    def dispatch(self, request: HttpRequest, storage: str = None, *args, **kwargs):
-        self.storage: Storage = storages[storage or "default"]
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_upload_params(self, kwargs: dict):
-        filename = kwargs.get("filename")
-        content_type = kwargs.get("type")
-        tmp_prefix = get_setting("TMP_PATH")
-        upload_id = get_random_string(32)
-        tmp_path = f"{tmp_prefix}/{upload_id}-{slugify(filename)}"
-        return tmp_path, content_type
 
 
 class UploadView(BaseS3UploadView):
@@ -86,7 +67,7 @@ class MultipartCompleteView(BaseS3UploadView):
         if not parts:
             return JsonResponse({"error": "parts are required"}, status=400)
         client = self.bucket.meta.client
-        result = client.complete_multipart_upload(
+        result: dict = client.complete_multipart_upload(
             Bucket=self.bucket.name,
             Key=key,
             UploadId=upload_id,

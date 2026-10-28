@@ -1,9 +1,10 @@
-from django.http import HttpRequest
-from django.views import View
 from django.core.files.storage import storages
-from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpRequest
 from django.utils.decorators import method_decorator
-from . import s3, multipart
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+
+from . import multipart, s3
 
 
 @method_decorator(csrf_exempt, name="dispatch")

@@ -8,7 +8,6 @@ __defaults = {
     "TMP_PATH": "z-uploads.tmp",
     "TUS_MAX_SIZE": 1024 * 1024 * 1024,  # 1GB
     "STORAGE_NAME": "default",
-    "PERMISSION_CLASSES": [],
 }
 
 
