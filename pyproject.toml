@@ -6,8 +6,19 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.43.7",
+    "boto3-stubs>=1.43.121",
     "django>=6.0.4",
     "django-environ>=0.13.0",
     "django-storages>=1.14.6",
     "djangorestframework>=3.17.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-django>=4.14.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "demo.test_settings"
+python_files = ["test_*.py"]
