@@ -30,4 +30,5 @@ class MultipartCompleteView(MultipartCompleteMixin, BaseUploadView):
 
 
 class UploadFileView(UploadFileMixin, BaseUploadView):
-    pass
+    # Authorized by the signed URL issued by the other views
+    public = True

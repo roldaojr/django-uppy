@@ -9,6 +9,9 @@ __defaults = {
     "TUS_MAX_SIZE": 1024 * 1024 * 1024,  # 1GB
     "STORAGE_NAME": "default",
     "UPLOAD_URL_MAX_AGE": 3600,  # 1 hour
+    "LOGIN_REQUIRED": True,
+    "PERMISSION_REQUIRED": (),  # Django permission or list of permissions
+    "PERMISSION_CHECK": None,  # Dotted path to a (request, storage) -> bool function
 }
 
 

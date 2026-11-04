@@ -18,6 +18,9 @@ STORAGES = {
     },
 }
 
+# Upload behavior tests run without access control, see test_access_control.py
+UPPY_LOGIN_REQUIRED = False
+
 # Used by the REST framework views (django_uppy.rest_framework)
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
