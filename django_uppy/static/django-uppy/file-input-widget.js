@@ -39,7 +39,12 @@ function initUppyFileInput(widget, prefix = undefined) {
     submitOnSuccess: false,
     addResultToForm: false,
   });
+  // CSRF token for upload endpoints using session authentication (REST framework)
+  const csrfInput = form.querySelector("[name=csrfmiddlewaretoken]");
   for (const [name, config] of Object.entries(pluginsJson || {})) {
+    if (csrfInput && ["Tus", "AwsS3"].includes(name) && !config.headers) {
+      config.headers = { "X-CSRFToken": csrfInput.value };
+    }
     console.debug("Use plugin", name, config);
     uppy.use(plugins[name], config);
   }

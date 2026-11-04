@@ -8,6 +8,7 @@ __defaults = {
     "TMP_PATH": "z-uploads.tmp",
     "TUS_MAX_SIZE": 1024 * 1024 * 1024,  # 1GB
     "STORAGE_NAME": "default",
+    "UPLOAD_URL_MAX_AGE": 3600,  # 1 hour
 }
 
 

@@ -1,29 +1,29 @@
-import logging
+import json
 
-from django.core.files.storage import Storage, storages
-from django.http import HttpRequest
-from django.utils.crypto import get_random_string
+from django.core.exceptions import BadRequest
+from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from ..utils import get_file_upload_path
-
-logger = logging.getLogger(__name__)
+from ..handlers import UploadResult
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class BaseUploadView(View):
-    def dispatch(
-        self, request: HttpRequest, storage: str | None = None, *args, **kwargs
-    ):
-        self.storage_name = storage or "default"
-        self.storage: Storage = storages[self.storage_name]
-        return super().dispatch(request, *args, **kwargs)
+    """Plain Django upload view, without authentication"""
 
-    def get_upload_params(self, kwargs: dict):
-        filename = kwargs.get("filename")
-        content_type = kwargs.get("type")
-        upload_id = get_random_string(32)
-        key = get_file_upload_path(upload_id, filename=filename)
-        return key, content_type
+    def get_request_data(self) -> dict:
+        try:
+            return json.loads(self.request.body)
+        except json.JSONDecodeError:
+            raise BadRequest("Invalid JSON body")
+
+    def render(self, result: UploadResult) -> HttpResponse:
+        if result.data is not None:
+            return JsonResponse(
+                result.data, status=result.status, headers=result.headers
+            )
+        return HttpResponse(
+            result.content, status=result.status, headers=result.headers
+        )

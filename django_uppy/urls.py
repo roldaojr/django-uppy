@@ -1,58 +1,52 @@
-from django.urls import path
-from django.views.generic import View
+from types import ModuleType
 
-from .views import multipart
-from .views import s3_compat as s3
-from .views.tus import TusUploadView
+from django.urls import URLPattern, path
+
+from . import views as django_views
 
 
-def s3_upload_urls(
-    single_upload: View,
-    init_multipart: View,
-    upload_part: View,
-    complete_multipart: View,
-    prefix: str = "uppy-s3",
-):
+def uppy_urls(views: ModuleType) -> list[URLPattern]:
+    """
+    Upload URLs for a set of views (plain Django or REST framework).
+    URL names are the same for every set, so the widget works with any of them.
+    """
     return [
+        # TUS protocol endpoints for resumable uploads
+        path("<str:storage>", views.TusUploadView.as_view(), name="uppy-tus-upload"),
+        path(
+            "<str:storage>/<str:upload_id>",
+            views.TusUploadView.as_view(),
+            name="uppy-tus-upload",
+        ),
+        # Signed upload URLs of storages without S3 support
+        path(
+            "<str:storage>/upload/<path:filename>",
+            views.UploadFileView.as_view(),
+            name="uppy-file-upload",
+        ),
         # S3 upload endpoint
         path(
             "<str:storage>/s3/params",
-            single_upload.as_view(),
-            name=f"{prefix}-upload",
+            views.UploadView.as_view(),
+            name="uppy-s3-upload",
         ),
         # Uppy Companion compatible S3 multipart upload endpoints
         path(
             "<str:storage>/s3/multipart",
-            init_multipart.as_view(),
-            name=f"{prefix}-multipart-init",
+            views.MultipartInitView.as_view(),
+            name="uppy-s3-multipart-init",
         ),
         path(
             "<str:storage>/s3/multipart/<str:upload_id>/<int:part_number>",
-            upload_part.as_view(),
-            name=f"{prefix}-multipart-part",
+            views.MultipartPartView.as_view(),
+            name="uppy-s3-multipart-part",
         ),
         path(
             "<str:storage>/s3/multipart/<str:upload_id>/complete",
-            complete_multipart.as_view(),
-            name=f"{prefix}-multipart-complete",
+            views.MultipartCompleteView.as_view(),
+            name="uppy-s3-multipart-complete",
         ),
     ]
 
 
-urlpatterns = [
-    # TUS protocol endpoints for resumable uploads
-    path("<str:storage>", TusUploadView.as_view(), name="uppy-tus-upload"),
-    path(
-        "<str:storage>/<str:upload_id>", TusUploadView.as_view(), name="uppy-tus-upload"
-    ),
-    path(
-        "<str:storage>/upload/<path:filename>",
-        multipart.UploadFileView.as_view(),
-        name="uppy-file-upload",
-    ),
-] + s3_upload_urls(
-    s3.UploadView,
-    s3.MultipartInitView,
-    s3.MultipartPartView,
-    s3.MultipartCompleteView,
-)
+urlpatterns = uppy_urls(django_views)
